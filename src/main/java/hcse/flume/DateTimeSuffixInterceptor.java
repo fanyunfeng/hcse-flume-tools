@@ -39,7 +39,7 @@ public class DateTimeSuffixInterceptor implements Interceptor {
     @Override
     public List<Event> intercept(List<Event> events) {
         for (Event event : events) {
-            String value = event.getHeaders().get("sourceHeader");
+            String value = event.getHeaders().get(sourceHeader);
 
             if (value != null) {
                 int start = value.lastIndexOf('.');
