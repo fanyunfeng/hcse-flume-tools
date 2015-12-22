@@ -8,10 +8,13 @@ public class HcseGangliaServer extends GangliaServer {
 
     public void configure(Context context) {
         super.configure(context);
-        
+
         String localHosts = context.getString(this.CONF_HOST_NAME);
 
         if (StringUtils.isNotEmpty(localHosts)) {
+            localHosts = localHosts.replaceAll("^([0]{1,2})", "");
+            localHosts = localHosts.replaceAll("\\.([0]{1,2})", ".");
+
             hostname = localHosts;
         }
     }

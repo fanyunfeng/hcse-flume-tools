@@ -26,7 +26,7 @@ public class DateTimeSuffixInterceptor implements Interceptor {
             int start = value.lastIndexOf('.');
             if (start != -1) {
                 start++;
-                
+
                 String tag = value.substring(start, start + length);
 
                 event.getHeaders().put(newHeader, tag);
@@ -45,7 +45,7 @@ public class DateTimeSuffixInterceptor implements Interceptor {
                 int start = value.lastIndexOf('.');
                 if (start != -1) {
                     start++;
-                    
+
                     String tag = value.substring(start, start + length);
 
                     event.getHeaders().put(newHeader, tag);
@@ -61,7 +61,7 @@ public class DateTimeSuffixInterceptor implements Interceptor {
 
     }
 
-    public class Builder implements Interceptor.Builder {
+    public static class Builder implements Interceptor.Builder {
         public Interceptor build() {
             return new DateTimeSuffixInterceptor();
         }

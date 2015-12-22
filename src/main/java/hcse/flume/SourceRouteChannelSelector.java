@@ -31,13 +31,13 @@ public class SourceRouteChannelSelector extends AbstractChannelSelector {
             Integer i = route.get(headers);
 
             if (i == null) {
-                ++index;
+                ret = index++;
 
                 if (index >= size) {
                     index = 0;
                 }
 
-                route.put(headers, index);
+                route.put(headers, ret);
             } else {
                 ret = i;
             }
@@ -49,10 +49,7 @@ public class SourceRouteChannelSelector extends AbstractChannelSelector {
     public void setChannels(List<Channel> channels) {
         super.setChannels(channels);
 
-        this.channels.clear();
-
         this.size = channels.size();
-
         this.channels = new ArrayList<ArrayList<Channel>>(size);
 
         for (Channel c : channels) {
