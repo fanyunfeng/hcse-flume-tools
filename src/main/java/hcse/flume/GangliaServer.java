@@ -56,7 +56,7 @@ public class GangliaServer implements MonitorService {
   private List<HostInfo> hosts;
   protected final GangliaCollector collectorRunnable;
   private int pollFrequency = 60;
-  public static final String DEFAULT_UNITS = "";
+  public static final String DEFAULT_UNITS = " ";
   public static final int DEFAULT_TMAX = 60;
   public static final int DEFAULT_DMAX = 0;
   public static final int DEFAULT_SLOPE = 3;
@@ -211,7 +211,7 @@ public class GangliaServer implements MonitorService {
     return this.isGanglia3;
   }
 
-  protected void createGangliaMessage(String name, String value) {
+  protected void createGangliaMessage3(String name, String value) {
     logger.debug("Sending ganglia3 formatted message."
             + name + ": " + value);
     name = hostname + "." + name;
@@ -305,6 +305,18 @@ public class GangliaServer implements MonitorService {
     }
     return hostInfoList;
   }
+  
+    void createGangliaMessage(String name, String value) {
+        if (isGanglia3) {
+            createGangliaMessage3(GANGLIA_CONTEXT + name, value);
+        } else {
+            createGangliaMessage31(GANGLIA_CONTEXT + name, value);
+        }
+    }
+    
+    void startReport(){
+        
+    }
 
   /**
    * Worker which polls JMX for all mbeans with
@@ -317,29 +329,24 @@ public class GangliaServer implements MonitorService {
 
     private GangliaServer server;
 
-    @Override
-    public void run() {
-      try {
-        Map<String, Map<String, String>> metricsMap =
-                JMXPollUtil.getAllMBeans();
-        for (String component : metricsMap.keySet()) {
-          Map<String, String> attributeMap = metricsMap.get(component);
-          for (String attribute : attributeMap.keySet()) {
-            if (isGanglia3) {
-              server.createGangliaMessage(GANGLIA_CONTEXT + component + "."
-                      + attribute,
-                      attributeMap.get(attribute));
-            } else {
-              server.createGangliaMessage31(GANGLIA_CONTEXT + component + "."
-                      + attribute,
-                      attributeMap.get(attribute));
+        @Override
+        public void run() {
+            try {
+                Map<String, Map<String, String>> metricsMap = JMXPollUtil.getAllMBeans();
+                
+                startReport();
+                for (String component : metricsMap.keySet()) {
+                    Map<String, String> attributeMap = metricsMap.get(component);
+                    for (String attribute : attributeMap.keySet()) {
+                        logger.info("stat item component:{} attribute:{}: value:{}", new Object[] {component, attribute, attributeMap.get(attribute)});
+                        server.createGangliaMessage(component + "." + attribute, attributeMap.get(attribute));
+                    }
+
+                    server.sendToGangliaNodes();
+                }
+            } catch (Throwable t) {
+                logger.error("Unexpected error", t);
             }
-            server.sendToGangliaNodes();
-          }
         }
-      } catch (Throwable t) {
-        logger.error("Unexpected error", t);
-      }
-    }
   }
 }

@@ -33,6 +33,14 @@ public class AppTest
      */
     public void testApp()
     {
-        assertTrue( true );
+        String name1 = "SINK.k1.EventDrainSuccessCount";
+        assertTrue(name1.matches("SINK\\..*\\.EventDrainSuccessCount"));
+        
+        String name2 = "SOURCE.k1.EventDrainSuccessCount";
+        assertTrue(!name2.matches("SINK\\..*\\.EventDrainSuccessCount"));
+        
+        
+        //addStatConf("SOURCE\\..*\\.EventAcceptedCount", STAT_ITEM_ACTION_INC);
+        //addStatConf("SOURCE\\..*\\.EventReceivedCount", STAT_ITEM_ACTION_INC);
     }
 }
