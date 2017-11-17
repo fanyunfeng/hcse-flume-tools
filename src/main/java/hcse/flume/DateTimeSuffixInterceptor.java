@@ -13,12 +13,14 @@ public class DateTimeSuffixInterceptor implements Interceptor {
 
     // private LRUMap<String, Integer> map;
 
-    private int length = 15;
+    private int start = 11;
     private String sourceHeader = "basename";
     private String newHeader = "basename";
+    
+    private String tagHeader = "timetag";
 
-    DateTimeSuffixInterceptor(int maxlen, String sourceHeader, String newHeader) {
-        this.length = maxlen;
+    DateTimeSuffixInterceptor(int start, String sourceHeader, String newHeader) {
+        this.start = start;
         this.sourceHeader = sourceHeader;
         this.newHeader = newHeader;
     }
@@ -36,20 +38,17 @@ public class DateTimeSuffixInterceptor implements Interceptor {
             int start = value.lastIndexOf('.');
             if (start != -1) {
                 start++;
+                StringBuffer buf = new StringBuffer(value.substring(start));
 
-                int end = start + length;
-
-                if (end <= value.length()) {
-                    String tag = value.substring(start, end);
-
-                    event.getHeaders().put(newHeader, tag);
+                for(int i=this.start; i<buf.length(); i++){
+                    buf.setCharAt(i, '0');
                 }
-                else{
-                    String tag = value.substring(start);
 
-                    event.getHeaders().put(newHeader, tag);
-                }
+                event.getHeaders().put(tagHeader, buf.toString());
             }
+
+            start = value.indexOf('.');
+            event.getHeaders().put(newHeader, value.substring(0, start));
         }
 
         return event;
@@ -58,7 +57,6 @@ public class DateTimeSuffixInterceptor implements Interceptor {
     @Override
     public List<Event> intercept(List<Event> events) {
         int start = 0;
-        int end = 0;
         for (Event event : events) {
             String value = event.getHeaders().get(sourceHeader);
 
@@ -66,20 +64,17 @@ public class DateTimeSuffixInterceptor implements Interceptor {
                 start = value.lastIndexOf('.');
                 if (start != -1) {
                     start++;
+                    StringBuffer buf = new StringBuffer(value.substring(start));
 
-                    end = start + length;
-
-                    if (end <= value.length()) {
-                        String tag = value.substring(start, end);
-
-                        event.getHeaders().put(newHeader, tag);
+                    for(int i=this.start; i<buf.length(); i++){
+                        buf.setCharAt(i, '0');
                     }
-                    else{
-                        String tag = value.substring(start);
 
-                        event.getHeaders().put(newHeader, tag);
-                    }
+                    event.getHeaders().put(tagHeader, buf.toString());
                 }
+                
+				start = value.indexOf('.');
+				event.getHeaders().put(newHeader, value.substring(0, start));
             }
         }
 
@@ -92,35 +87,42 @@ public class DateTimeSuffixInterceptor implements Interceptor {
     }
 
     public static class Builder implements Interceptor.Builder {
-        private int maxlen = 15;
+        private int start = 11;
 
-        private String sourceHeader = Constants.DEFAULTHEADER;
-        private String newHeader = Constants.DEFAULTHEADER;
+        private String sourceHeader = Constants.DEFAULTHEADERNAME;
+        private String newHeader = Constants.DEFAULTHEADERNAME;
+        
+        private String tagHeader = Constants.TAGHEADERNAME;
 
         public Interceptor build() {
-            logger.info(String.format("Creating DateTimeSuffixInterceptor: maxlen=%s,sourceHeader=%s,newHeader=%s",
-                    maxlen, sourceHeader, newHeader));
+            logger.info(String.format("Creating DateTimeSuffixInterceptor: start=%d,sourceHeader=%s,newHeader=%s,tagHeader",
+                    start, sourceHeader, newHeader, tagHeader));
 
-            return new DateTimeSuffixInterceptor(maxlen, sourceHeader, newHeader);
+            return new DateTimeSuffixInterceptor(start, sourceHeader, newHeader);
         }
 
         @Override
         public void configure(Context context) {
-            maxlen = context.getInteger(Constants.MAXLEN, Constants.MAXLEN_DEFAULT);
+            start = context.getInteger(Constants.START, Constants.START_DEFAULT);
 
-            sourceHeader = context.getString(Constants.SOURCEHEADER, Constants.DEFAULTHEADER);
-            newHeader = context.getString(Constants.NEWHEADER, Constants.DEFAULTHEADER);
+            sourceHeader = context.getString(Constants.SOURCEHEADER, Constants.DEFAULTHEADERNAME);
+            newHeader = context.getString(Constants.NEWHEADER, Constants.DEFAULTHEADERNAME);
+            
+            tagHeader = context.getString(Constants.TAGHEADER, Constants.DEFAULTHEADERNAME);
         }
     }
 
     public static class Constants {
-        public static final String MAXLEN = "maxlen";
+        public static final String START = "start";
+        public static final int START_DEFAULT = 11;
 
-        public static final int MAXLEN_DEFAULT = 15;
 
         public static final String SOURCEHEADER = "sourceHeader";
         public static final String NEWHEADER = "newHeader";
 
-        public static final String DEFAULTHEADER = "basename";
+        public static final String DEFAULTHEADERNAME = "basename";
+        
+        public static final String TAGHEADER = "tagHeader";
+        public static final String TAGHEADERNAME = "timetag";
     }
 }
