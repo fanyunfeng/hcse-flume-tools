@@ -1,128 +1,159 @@
 package hcse.flume;
 
-import java.util.List;
-
 import org.apache.flume.Context;
 import org.apache.flume.Event;
 import org.apache.flume.interceptor.Interceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 public class DateTimeSuffixInterceptor implements Interceptor {
     private static final Logger logger = LoggerFactory.getLogger(DateTimeSuffixInterceptor.class);
 
-    // private LRUMap<String, Integer> map;
+    private int validTimeTagLength;
+    private String sourceHeader;
+    private String newHeader;
 
-    private int start = 11;
-    private String sourceHeader = "basename";
-    private String newHeader = "basename";
-    
-    private String tagHeader = "timetag";
+    private String timeTagHeader;
+    private String dateHeader;
 
-    DateTimeSuffixInterceptor(int start, String sourceHeader, String newHeader) {
-        this.start = start;
+    private char dateSeparator;
+
+    public DateTimeSuffixInterceptor(int validTimeTagLength, String sourceHeader, String newHeader, String timeTagHeader, String dateHeader, char dateSeparator) {
+        this.validTimeTagLength = validTimeTagLength;
+
         this.sourceHeader = sourceHeader;
         this.newHeader = newHeader;
+
+        this.timeTagHeader = timeTagHeader;
+        this.dateHeader = dateHeader;
+        this.dateSeparator = dateSeparator;
     }
 
-    @Override
     public void initialize() {
-        // map = new LRUMap<String, Integer>(2048);
     }
 
-    @Override
-    public Event intercept(Event event) {
-        String value = event.getHeaders().get(sourceHeader);
+    private Event handleEvent(Event event) {
+        Map<String, String> headers = event.getHeaders();
+        String fileName = headers.get(sourceHeader);
 
-        if (value != null) {
-            int start = value.lastIndexOf('.');
-            if (start != -1) {
-                start++;
-                StringBuffer buf = new StringBuffer(value.substring(start));
-
-                for(int i=this.start; i<buf.length(); i++){
-                    buf.setCharAt(i, '0');
-                }
-
-                event.getHeaders().put(tagHeader, buf.toString());
-            }
-
-            start = value.indexOf('.');
-            event.getHeaders().put(newHeader, value.substring(0, start));
+        if (fileName == null) {
+            return null;
         }
+
+        //add timetag
+        int timeStart = fileName.lastIndexOf('.');
+
+        if (timeStart == -1) {
+            return null;
+        }
+
+        timeStart++;
+        StringBuffer buf = new StringBuffer(fileName.substring(timeStart));
+
+        for (int i = this.validTimeTagLength; i < buf.length(); i++) {
+            buf.setCharAt(i, '0');
+        }
+
+        headers.put(timeTagHeader, buf.toString());
+
+        //add date
+        int dateEnd = fileName.indexOf(dateSeparator, timeStart);
+
+        if (dateEnd == -1) {
+            return null;
+        }
+
+        headers.put(dateHeader, fileName.substring(timeStart,
+                dateEnd));
+
+        //add basename
+        int baseNameEnd = fileName.indexOf('.');
+
+        if (baseNameEnd == -1) {
+            return null;
+        }
+
+        headers.put(newHeader, fileName.substring(0, baseNameEnd));
 
         return event;
     }
 
-    @Override
+    public Event intercept(Event event) {
+        return handleEvent(event);
+    }
+
     public List<Event> intercept(List<Event> events) {
         int start = 0;
+        Event result;
+
+        ArrayList<Event> results = new ArrayList<Event>(events.size());
+
         for (Event event : events) {
-            String value = event.getHeaders().get(sourceHeader);
+            result = handleEvent(event);
 
-            if (value != null) {
-                start = value.lastIndexOf('.');
-                if (start != -1) {
-                    start++;
-                    StringBuffer buf = new StringBuffer(value.substring(start));
-
-                    for(int i=this.start; i<buf.length(); i++){
-                        buf.setCharAt(i, '0');
-                    }
-
-                    event.getHeaders().put(tagHeader, buf.toString());
-                }
-                
-				start = value.indexOf('.');
-				event.getHeaders().put(newHeader, value.substring(0, start));
+            if (result != null) {
+                results.add(result);
             }
         }
 
-        return events;
+        return results;
     }
 
-    @Override
     public void close() {
 
     }
 
     public static class Builder implements Interceptor.Builder {
-        private int start = 11;
+        private String sourceHeader = Constants.DEFAULT_HEADER_NAME;
+        private String newHeader = Constants.DEFAULT_HEADER_NAME;
 
-        private String sourceHeader = Constants.DEFAULTHEADERNAME;
-        private String newHeader = Constants.DEFAULTHEADERNAME;
-        
-        private String tagHeader = Constants.TAGHEADERNAME;
+        private String timeTagHeader = Constants.TIME_TAG_HEADER_NAME;
+        private String dateHeader = Constants.DATE_HEADER_NAME;
+
+        private int validTimeTagLength = Constants.DEFAULT_VALID_TIME_TAG_LENGTH;
+
+        private char dateSeparator = Constants.DATE_SEPARATOR.charAt(0);
 
         public Interceptor build() {
-            logger.info(String.format("Creating DateTimeSuffixInterceptor: start=%d,sourceHeader=%s,newHeader=%s,tagHeader",
-                    start, sourceHeader, newHeader, tagHeader));
+            logger.info(String.format("Creating DateTimeSuffixInterceptor: validTimeTagLength=%d,sourceHeader=%s,newHeader=%s,timeTagHeader=%s,dateHeader=%s,dateSeparator=%c",
+                    validTimeTagLength, sourceHeader, newHeader, timeTagHeader, dateHeader, dateSeparator));
 
-            return new DateTimeSuffixInterceptor(start, sourceHeader, newHeader);
+            return new DateTimeSuffixInterceptor(validTimeTagLength, sourceHeader, newHeader, timeTagHeader, dateHeader, dateSeparator);
         }
 
-        @Override
         public void configure(Context context) {
-            start = context.getInteger(Constants.START, Constants.START_DEFAULT);
+            validTimeTagLength = context.getInteger(Constants.VALID_TIME_TAG_LENGTH, Constants.DEFAULT_VALID_TIME_TAG_LENGTH);
 
-            sourceHeader = context.getString(Constants.SOURCEHEADER, Constants.DEFAULTHEADERNAME);
-            newHeader = context.getString(Constants.NEWHEADER, Constants.DEFAULTHEADERNAME);
-            
-            tagHeader = context.getString(Constants.TAGHEADER, Constants.DEFAULTHEADERNAME);
+            sourceHeader = context.getString(Constants.SOURCE_HEADER, Constants.DEFAULT_HEADER_NAME);
+            newHeader = context.getString(Constants.NEW_HEADER, Constants.DEFAULT_HEADER_NAME);
+
+            timeTagHeader = context.getString(Constants.TIME_TAG_HEADER, Constants.TIME_TAG_HEADER_NAME);
+            dateHeader = context.getString(Constants.DATE_HEADER, Constants.DATE_HEADER_NAME);
+
+            dateSeparator = context.getString(Constants.DATE_SEPARATOR_NAME, Constants.DATE_SEPARATOR).charAt(0);
         }
     }
 
     public static class Constants {
-        public static final String START = "start";
-        public static final int START_DEFAULT = 11;
+        public static final String VALID_TIME_TAG_LENGTH = "validTimeTagLength";
+        public static final Integer DEFAULT_VALID_TIME_TAG_LENGTH = 11;
 
 
-        public static final String SOURCEHEADER = "sourceHeader";
-        public static final String NEWHEADER = "newHeader";
+        public static final String SOURCE_HEADER = "sourceHeader";
+        public static final String NEW_HEADER = "newHeader";
 
-        public static final String DEFAULTHEADERNAME = "basename";
-        
-        public static final String TAGHEADER = "tagHeader";
-        public static final String TAGHEADERNAME = "timetag";
+        public static final String DEFAULT_HEADER_NAME = "basename";
+
+        public static final String DATE_HEADER = "dateHeader";
+        public static final String DATE_HEADER_NAME = "date";
+        public static final String DATE_SEPARATOR_NAME = "dateSeparator";
+        public static final String DATE_SEPARATOR = "_";
+
+        public static final String TIME_TAG_HEADER = "timeTagHeader";
+        public static final String TIME_TAG_HEADER_NAME = "timetag";
     }
 }
